@@ -37,6 +37,7 @@ ro.btconfig.if=uart
 ro.btconfig.vendor=qcom
 ro.btconfig.chip=QCA6164
 ro.btconfig.dev=/dev/ttyHS0
+persist.bt.enableAptXHD=true
 
 # Camera
 media.camera.ts.monotonic=0
