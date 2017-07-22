@@ -56,7 +56,7 @@ on init
     chown root system /sys/fs/cgroup/memory/bg/tasks
     chmod 0660 /sys/fs/cgroup/memory/bg/tasks
 
-    write /sys/module/qpnp_rtc/parameters/poweron_alarm 1
+    write /sys/module/qpnp_rtc/parameters/poweron_alarm 1  
 
 on late-fs
     # boot time fs tune
@@ -341,7 +341,10 @@ on post-fs-data
     mkdir /data/misc/SelfHost/socket/ 2770 system system
 
     # Create PERFD deamon related dirs
+    mkdir /data/misc/perfd 0755 root system
+    chmod 2755 /data/misc/perfd
     mkdir /data/system/perfd 2770 root system
+    chmod 2770 /data/system/perfd
     rm /data/system/perfd/default_values
     start perfd
 
@@ -389,7 +392,6 @@ on property:persist.env.fastdorm.enabled=true
 service cnd /system/bin/cnd
     class main
     socket cnd stream 660 root inet
-    group root wakelock
     writepid /dev/cpuset/system-background/tasks
 
 service dpmd /system/bin/dpmd
@@ -402,11 +404,12 @@ service irsc_util /system/bin/irsc_util "/etc/sec_config"
     class core
     user root
     oneshot
+    writepid /dev/cpuset/system-background/tasks
 
 service rmt_storage /system/bin/rmt_storage
     class core
     user root
-    group system wakelock
+    system
     writepid /dev/cpuset/system-background/tasks
 
 service tftp_server /system/bin/tftp_server
@@ -461,6 +464,13 @@ service sensors /system/bin/sensors.qcom
     user root
     group root
     writepid /dev/cpuset/system-background/tasks
+
+service perfd /system/bin/vendor/perfd
+   class main
+   user root
+   group root readproc
+   socket perfd seqpacket 066 root system
+   writepid /dev/cpuset/system-background/tasks
 
 on property:ro.use_data_netmgrd=false
     # netmgr not supported on specific target
@@ -649,6 +659,7 @@ service audiod /system/bin/audiod
     class late_start
     user system
     group system
+    writepid /dev/cpuset/system-background/tasks
 
 service imsqmidaemon /system/bin/imsqmidaemon
     class main
@@ -664,17 +675,6 @@ service imsdatadaemon /system/bin/imsdatadaemon
     group system wifi radio inet log diag
     writepid /dev/cpuset/system-background/tasks
     disabled
-
-service pd_mapper /system/vendor/bin/pd-mapper
-    class core
-    disabled
-
-on property:persist.sys.pd_enable=1
-    start pd_mapper
-    write /sys/class/service_locator/service_locator_status 1
-
-on property:persist.sys.pd_enable=0
-    write /sys/class/service_locator/service_locator_status 0
 
 on property:sys.ims.QMI_DAEMON_STATUS=1
     start imsdatadaemon
