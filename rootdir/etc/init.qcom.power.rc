@@ -1,8 +1,9 @@
+import /init.spectrum.rc
+
 on early-init
     setprop sys.io.scheduler noop
 
 on init
-
     # Set permissions by node reads by dumpstate
     chmod 0644 /sys/devices/system/cpu/present
     chmod 0644 /sys/devices/system/cpu/online
@@ -32,6 +33,8 @@ on init
     chown system system /dev/voxpopuli/touch_min_freq_little   
 
 on boot
+    trigger init-cpus
+
     # Update foreground and background cpusets
     write /dev/cpuset/foreground/cpus 0-3
     write /dev/cpuset/foreground/boost/cpus 0-3
@@ -141,12 +144,12 @@ on enable-low-power
 
 
 on init-cpus
-    # Disable thermal bcl hotplug to switch governor
+    # Disable thermal hotplug to switch governor
     write /sys/module/msm_thermal/core_control/enabled 0
-    write /sys/devices/soc/soc:qcom,bcl/mode "disable"
-    write /sys/devices/soc/soc:qcom,bcl/hotplug_mask 0
-    write /sys/devices/soc/soc:qcom,bcl/hotplug_soc_mask 0
-    write /sys/devices/soc/soc:qcom,bcl/mode "enable"
+    
+    # Bring back main cores CPU 0,2
+    write /sys/devices/system/cpu/cpu0/online 1
+    write /sys/devices/system/cpu/cpu2/online 1
 
     write /sys/module/lowmemorykiller/parameters/vmpressure_file_min 81250
 
@@ -164,10 +167,6 @@ on init-cpus
     write /sys/devices/system/cpu/cpu0/cpufreq/interactive/max_freq_hysteresis 79000
     write /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq 307200
     write /sys/devices/system/cpu/cpu0/cpufreq/interactive/ignore_hispeed_on_notif 0
-    write /sys/devices/system/cpu/cpu0/cpufreq/interactive/enable_prediction 1
-
-    # Online CPU2
-    write /sys/devices/system/cpu/cpu2/online 1
 
     # Configure governor settings for big cluster
     write /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor "interactive"
@@ -183,7 +182,6 @@ on init-cpus
     write /sys/devices/system/cpu/cpu2/cpufreq/interactive/max_freq_hysteresis 39000
     write /sys/devices/system/cpu/cpu2/cpufreq/scaling_min_freq 307200
     write /sys/devices/system/cpu/cpu2/cpufreq/interactive/ignore_hispeed_on_notif 1
-    write /sys/devices/system/cpu/cpu2/cpufreq/interactive/enable_prediction 1
 
     # EAS: Capping the max frequency of silver core to 1.6GHz
     write /sys/devices/system/cpu/cpu2/cpufreq/scaling_max_freq 1593600
@@ -194,6 +192,10 @@ on init-cpus
 
     # Re-enable thermal and BCL hotplug
     write /sys/module/msm_thermal/core_control/enabled 1
+
+    # Input boost configuration
+    write /sys/kernel/cpu_input_boost/ib_freqs "1190400 1190400"
+    write /sys/kernel/cpu_input_boost/ib_duration_ms 500
 
     # HMP: Set big.LITTLE scheduler parameters (no effect on EAS)
     write /proc/sys/kernel/sched_boost 0
@@ -230,6 +232,12 @@ on init-cpus
 
     write /sys/module/lpm_levels/parameters/sleep_disabled "N"
 
+on class_start:late_start
+    trigger enable-low-power
+
+    # Start IO prefetcher service
+    start iop
+
 on property:dev.bootcomplete=1
 
     # Update cpusets now that boot is complete and we want better load balancing
@@ -239,7 +247,7 @@ on property:dev.bootcomplete=1
     write /dev/cpuset/background/cpus 0
     write /dev/cpuset/system-background/cpus 0-1
 
-# [EAS] Scheduler: Tunables
+     # [EAS] Scheduler: Tunables
         write /proc/sys/kernel/sched_autogroup_enabled 0
         write /proc/sys/kernel/sched_cfs_boost 0
 	write /proc/sys/kernel/sched_child_runs_first 0
